@@ -1,0 +1,5 @@
+2025-04-16 21:56:41,953 - root - INFO - Logging initialized
+2025-04-16 21:56:41,953 - root - INFO - Starting Person Finder Drone
+2025-04-16 21:56:43,315 - EnhancedDroneEnv - INFO - Goal set to [1.  1.  1.5] (difficulty: medium)
+2025-04-16 21:56:43,315 - EnhancedDroneEnv - INFO - Initialized with noise_std=0.01, use_lidar=True, goal_difficulty=medium
+2025-04-16 21:56:43,315 - EnhancedDroneEnv - INFO - Goal set to [1.  1.  1.5]

@@ -72,14 +72,17 @@ class EnhancedDroneEnv(gym.Wrapper):
             # Assuming original observation space is Box
             orig_obs_space = self.observation_space
             
+            # Debug output to understand what we're working with
+            self.logger.info(f"Original observation space shape: {orig_obs_space.shape}")
+            
             # Add an additional dimension for the distance to goal
             extended_shape = (orig_obs_space.shape[0] + 1,)
             
-            # Update observation space
+            # Update observation space - don't specify shape explicitly as it's already
+            # implied by the low and high arrays
             self.observation_space = gym.spaces.Box(
                 low=np.append(orig_obs_space.low, 0),  # Minimum distance is 0
                 high=np.append(orig_obs_space.high, np.inf),  # Maximum distance is infinity
-                shape=extended_shape,
                 dtype=orig_obs_space.dtype
             )
             
@@ -155,7 +158,15 @@ class EnhancedDroneEnv(gym.Wrapper):
             dict: Info dictionary
         """
         # Execute action in the environment
-        obs, reward, done, info = self.env.step(action)
+        result = self.env.step(action)
+        
+        # Handle different return types (gym vs gymnasium)
+        if len(result) == 4:  # gym style: obs, reward, done, info
+            obs, reward, done, info = result
+            truncated = False
+        else:  # gymnasium style: obs, reward, terminated, truncated, info
+            obs, reward, terminated, truncated, info = result
+            done = terminated
         
         # Log raw data at debug level
         self.logger.debug(f"Raw obs: {obs[:3]}, reward: {reward}, done: {done}")
@@ -169,7 +180,11 @@ class EnhancedDroneEnv(gym.Wrapper):
         # Log processed data
         self.logger.debug(f"Processed obs: {processed_obs[:3]}, reward: {custom_reward}")
         
-        return processed_obs, custom_reward, done, info
+        # Return appropriate result format based on input format
+        if len(result) == 4:  # gym style
+            return processed_obs, custom_reward, done, info
+        else:  # gymnasium style
+            return processed_obs, custom_reward, terminated, truncated, info
     
     def _process_obs(self, obs):
         """
@@ -191,6 +206,9 @@ class EnhancedDroneEnv(gym.Wrapper):
         
         # Apply noise filter
         filtered_obs = self._noise_filter(noisy_obs)
+        
+        # Store processed observation for next step
+        self.last_obs = filtered_obs.copy()
         
         # Apply lidar mapping (state abstraction)
         if self.use_lidar:
@@ -219,9 +237,6 @@ class EnhancedDroneEnv(gym.Wrapper):
         # Apply simple low-pass filter (0.8 * current + 0.2 * previous)
         alpha = 0.8
         filtered_obs = alpha * obs + (1 - alpha) * self.last_obs
-        
-        # Update last observation
-        self.last_obs = obs
         
         return filtered_obs
     

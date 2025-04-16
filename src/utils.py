@@ -13,6 +13,8 @@ import sys
 import time
 import logging
 import numpy as np
+import json
+import yaml
 from typing import Dict, List, Optional, Union, Any, Tuple
 import matplotlib.pyplot as plt
 from matplotlib.figure import Figure
@@ -286,6 +288,12 @@ def parse_obs_space(obs):
     if len(obs) > 12:
         parsed['distance_to_goal'] = obs[-1]
     
+    # For person finder, the last 3 elements are detection info
+    if len(obs) >= 15:
+        parsed['detection_flag'] = obs[-3]
+        parsed['match_score'] = obs[-2]
+        parsed['num_detections'] = obs[-1]
+    
     return parsed
 
 def angle_between_vectors(v1, v2):
@@ -310,48 +318,6 @@ def angle_between_vectors(v1, v2):
     
     return np.arccos(cos_angle)
 
-def rotate_vector(vector, quaternion):
-    """
-    Rotate a vector using a quaternion.
-    
-    Args:
-        vector (np.ndarray): Vector to rotate
-        quaternion (np.ndarray): Quaternion (w, x, y, z)
-        
-    Returns:
-        np.ndarray: Rotated vector
-    """
-    # Ensure quaternion is normalized
-    quat_norm = np.linalg.norm(quaternion)
-    if quat_norm == 0:
-        return vector
-    
-    normalized_quat = quaternion / quat_norm
-    
-    # Extract components
-    w, x, y, z = normalized_quat
-    
-    # Compute rotation
-    rotated = np.zeros_like(vector)
-    
-    # Apply quaternion rotation: v' = q * v * q^-1
-    # This is a simplified implementation for 3D vectors
-    xx = x * x
-    yy = y * y
-    zz = z * z
-    xy = x * y
-    xz = x * z
-    yz = y * z
-    wx = w * x
-    wy = w * y
-    wz = w * z
-    
-    rotated[0] = (1 - 2 * (yy + zz)) * vector[0] + 2 * (xy - wz) * vector[1] + 2 * (xz + wy) * vector[2]
-    rotated[1] = 2 * (xy + wz) * vector[0] + (1 - 2 * (xx + zz)) * vector[1] + 2 * (yz - wx) * vector[2]
-    rotated[2] = 2 * (xz - wy) * vector[0] + 2 * (yz + wx) * vector[1] + (1 - 2 * (xx + yy)) * vector[2]
-    
-    return rotated
-
 def load_training_config(config_file):
     """
     Load training configuration from file.
@@ -362,9 +328,6 @@ def load_training_config(config_file):
     Returns:
         Dict: Configuration dictionary
     """
-    import json
-    import yaml
-    
     # Determine file type from extension
     _, ext = os.path.splitext(config_file)
     
@@ -376,7 +339,51 @@ def load_training_config(config_file):
             with open(config_file, 'r') as f:
                 config = yaml.safe_load(f)
         else:
-            raise ValueError(f"Unsupported configuration file format: {ext}")
+            # For txt files like config.txt, parse as simple key-value pairs
+            config = {}
+            with open(config_file, 'r') as f:
+                lines = f.readlines()
+                
+                # Parse hierarchical structure
+                current_section = None
+                for line in lines:
+                    line = line.strip()
+                    
+                    # Skip empty lines and comments
+                    if not line or line.startswith('#'):
+                        continue
+                    
+                    # Check for section header (e.g., "[section]:" or "section:")
+                    if line.endswith(':'):
+                        section_name = line[:-1].strip('[]')
+                        config[section_name] = {}
+                        current_section = section_name
+                        continue
+                    
+                    # Parse key-value pairs
+                    if ':' in line:
+                        key, value = [x.strip() for x in line.split(':', 1)]
+                        
+                        # Try to convert value to appropriate type
+                        try:
+                            # Convert to numbers if possible
+                            if value.lower() == 'true':
+                                value = True
+                            elif value.lower() == 'false':
+                                value = False
+                            elif '.' in value:
+                                value = float(value)
+                            else:
+                                value = int(value)
+                        except ValueError:
+                            # Keep as string if conversion fails
+                            pass
+                        
+                        # Store in current section or root
+                        if current_section:
+                            config[current_section][key] = value
+                        else:
+                            config[key] = value
         
         logging.info(f"Loaded configuration from {config_file}")
         return config
@@ -393,9 +400,6 @@ def save_training_config(config, output_file):
         config (Dict): Configuration dictionary
         output_file (str): Path to output file
     """
-    import json
-    import yaml
-    
     # Determine file type from extension
     _, ext = os.path.splitext(output_file)
     
@@ -410,7 +414,15 @@ def save_training_config(config, output_file):
             with open(output_file, 'w') as f:
                 yaml.dump(config, f, default_flow_style=False)
         else:
-            raise ValueError(f"Unsupported configuration file format: {ext}")
+            # Write as simple key-value pairs
+            with open(output_file, 'w') as f:
+                for section, items in config.items():
+                    f.write(f"{section}:\n")
+                    if isinstance(items, dict):
+                        for key, value in items.items():
+                            f.write(f"  {key}: {value}\n")
+                    else:
+                        f.write(f"  {items}\n")
         
         logging.info(f"Saved configuration to {output_file}")
     
@@ -489,3 +501,92 @@ def summarize_model_performance(metrics, output_file=None):
         logging.info(f"Performance summary saved to {output_file}")
     
     return summary
+
+def print_progress_bar(iteration, total, prefix='', suffix='', decimals=1, length=50, fill='█'):
+    """
+    Print a progress bar to the console.
+    
+    Args:
+        iteration (int): Current iteration
+        total (int): Total iterations
+        prefix (str): Prefix string
+        suffix (str): Suffix string
+        decimals (int): Decimal places for percentage
+        length (int): Character length of bar
+        fill (str): Bar fill character
+    """
+    percent = ("{0:." + str(decimals) + "f}").format(100 * (iteration / float(total)))
+    filled_length = int(length * iteration // total)
+    bar = fill * filled_length + '-' * (length - filled_length)
+    print(f'\r{prefix} |{bar}| {percent}% {suffix}', end='')
+    
+    # Print new line on completion
+    if iteration == total:
+        print()
+
+def visualize_detection_results(image, detected_persons, target_image=None, best_match_idx=-1, output_path=None):
+    """
+    Visualize person detection results.
+    
+    Args:
+        image (np.ndarray): Original image
+        detected_persons (List[Dict]): Detected persons
+        target_image (np.ndarray, optional): Target person image
+        best_match_idx (int): Index of best matching person
+        output_path (str, optional): Path to save visualization
+        
+    Returns:
+        np.ndarray: Visualization image
+    """
+    import cv2
+    
+    # Create a copy of the image
+    vis_img = image.copy() if image is not None else np.zeros((480, 640, 3), dtype=np.uint8)
+    
+    # Draw detection boxes
+    for i, person in enumerate(detected_persons):
+        box = person.get('box')
+        match_score = person.get('match_score', 0)
+        
+        if box is not None:
+            x1, y1, x2, y2 = map(int, box)
+            
+            # Color based on match (green for best match, blue for others)
+            if i == best_match_idx:
+                color = (0, 255, 0)  # Green for best match
+            else:
+                # Color based on match score (blue->red scale)
+                blue = int(255 * (1 - match_score))
+                red = int(255 * match_score)
+                color = (blue, 0, red)
+            
+            # Draw bounding box
+            cv2.rectangle(vis_img, (x1, y1), (x2, y2), color, 2)
+            
+            # Draw match score
+            score_text = f"{match_score:.2f}"
+            cv2.putText(vis_img, score_text, (x1, y1-5),
+                      cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 2)
+    
+    # Add target image if available
+    if target_image is not None:
+        h, w = vis_img.shape[:2]
+        # Target image size
+        target_size = min(150, h // 4)
+        # Resize target image
+        target_resized = cv2.resize(target_image, (target_size, target_size))
+        # Place in top-left corner
+        try:
+            vis_img[10:10+target_size, 10:10+target_size] = target_resized
+            cv2.putText(vis_img, "Target Person", (10, 10+target_size+20),
+                      cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
+        except:
+            # Handle case where target image doesn't fit
+            pass
+    
+    # Save to file if requested
+    if output_path is not None:
+        ensure_dir(os.path.dirname(output_path))
+        cv2.imwrite(output_path, vis_img)
+    
+    return vis_img

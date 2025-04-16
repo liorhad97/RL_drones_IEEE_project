@@ -2,46 +2,40 @@
 # -*- coding: utf-8 -*-
 
 """
-Callback Modules for RL Drone System
+Callbacks for the RL Drone System
 
-This module implements callbacks for the RL drone system, including:
-- Human feedback integration (RLHF component in the architecture diagram)
-- Goal modification based on progress
-- Logging and monitoring
-- Event handling for keyboard/UI input
-
-Callbacks are used to extend the training and evaluation process without
-modifying the core training loop.
+This module provides various callback implementations for the RL drone system,
+including human feedback, goal adjustment, and logging.
 """
 
 import os
 import time
-import numpy as np
 import logging
-from typing import Dict, List, Optional, Union, Any, Callable
-from stable_baselines3.common.callbacks import BaseCallback, EvalCallback
+import numpy as np
+import matplotlib.pyplot as plt
+from typing import Dict, List, Optional, Union, Any, Callable, Type
+from stable_baselines3.common.callbacks import BaseCallback
 import keyboard
 
 class HumanFeedbackCallback(BaseCallback):
     """
     Callback for incorporating human feedback during training.
     
-    This implements the "RLHF" component (blue box) in the architecture diagram.
-    It allows human operators to provide feedback that affects the reward function
-    and training process.
+    This callback periodically checks for keyboard input to get human feedback,
+    which is then incorporated into the reward function.
     
     Attributes:
-        feedback_frequency (int): How often to request/check for feedback (in steps)
-        feedback_keys (Dict[str, float]): Mapping of keys to feedback values
-        feedback_ui_enabled (bool): Whether to use a graphical UI for feedback
-        verbose (int): Verbosity level
-        logger (logging.Logger): Logger for the callback
+        feedback_frequency (int): How often to check for feedback (in steps)
+        feedback_keys (Dict[str, float]): Mapping from keys to feedback values
+        feedback_ui_enabled (bool): Whether to show a UI for feedback
+        last_feedback_step (int): Last step when feedback was checked
+        feedback_window (Optional): Feedback UI window (if enabled)
     """
     
     def __init__(
         self,
         feedback_frequency: int = 20,
-        feedback_keys: Optional[Dict[str, float]] = None,
+        feedback_keys: Dict[str, float] = {'+': 1.0, '-': -1.0, '0': 0.0},
         feedback_ui_enabled: bool = False,
         verbose: int = 0
     ):
@@ -50,125 +44,173 @@ class HumanFeedbackCallback(BaseCallback):
         
         Args:
             feedback_frequency (int): How often to check for feedback (in steps)
-            feedback_keys (Dict[str, float], optional): Key mappings for feedback values
-            feedback_ui_enabled (bool): Whether to use a graphical UI for feedback
+            feedback_keys (Dict[str, float]): Mapping from keys to feedback values
+            feedback_ui_enabled (bool): Whether to show a UI for feedback
             verbose (int): Verbosity level
         """
-        super(HumanFeedbackCallback, self).__init__(verbose)
+        super().__init__(verbose)
         self.feedback_frequency = feedback_frequency
-        
-        # Default key mappings if none provided
-        if feedback_keys is None:
-            self.feedback_keys = {
-                '+': 1.0,   # Positive feedback (good behavior)
-                '-': -1.0,  # Negative feedback (bad behavior)
-                '0': 0.0    # Neutral feedback
-            }
-        else:
-            self.feedback_keys = feedback_keys
-            
+        self.feedback_keys = feedback_keys
         self.feedback_ui_enabled = feedback_ui_enabled
-        self.last_feedback_time = time.time()
-        self.feedback_cooldown = 0.5  # seconds
+        self.last_feedback_step = 0
+        self.feedback_window = None
         
-        # Initialize logger
         self.logger = logging.getLogger('HumanFeedbackCallback')
-        self.logger.info(f"Initialized with feedback_frequency={feedback_frequency}")
         
-        # Register keyboard handlers if not using UI
-        if not feedback_ui_enabled:
-            self._setup_keyboard_handlers()
+        # Print instructions
+        key_instructions = ', '.join([f"'{k}' for {v}" for k, v in feedback_keys.items()])
+        print(f"Human feedback enabled. Press {key_instructions} to provide feedback.")
     
-    def _setup_keyboard_handlers(self):
-        """Set up keyboard handlers for feedback input."""
-        # Check if keyboard module is available
+    def _init_callback(self) -> None:
+        """Initialize the callback when training starts."""
+        if self.feedback_ui_enabled:
+            try:
+                self._setup_feedback_ui()
+            except Exception as e:
+                self.logger.error(f"Failed to set up feedback UI: {e}")
+                self.feedback_ui_enabled = False
+    
+    def _setup_feedback_ui(self) -> None:
+        """Set up a simple UI for feedback (if matplotlib is available)."""
         try:
-            for key in self.feedback_keys:
-                keyboard.on_press_key(key, self._keyboard_callback)
-            self.logger.info(f"Registered keyboard handlers for keys: {list(self.feedback_keys.keys())}")
+            import matplotlib.pyplot as plt
+            from matplotlib.widgets import Button
+            
+            self.fig, self.ax = plt.subplots(figsize=(6, 3))
+            self.fig.canvas.set_window_title('Human Feedback')
+            
+            # Hide axes
+            self.ax.axis('off')
+            
+            # Create buttons for feedback
+            button_ax = {}
+            n_buttons = len(self.feedback_keys)
+            button_width = 0.2
+            button_spacing = (1.0 - n_buttons * button_width) / (n_buttons + 1)
+            
+            for i, (key, value) in enumerate(self.feedback_keys.items()):
+                left = (i + 1) * button_spacing + i * button_width
+                button_ax[key] = plt.axes([left, 0.4, button_width, 0.3])
+                
+                # Create button with appropriate label
+                if value > 0:
+                    label = f"Good (+{value})"
+                    color = 'lightgreen'
+                elif value < 0:
+                    label = f"Bad ({value})"
+                    color = 'salmon'
+                else:
+                    label = "Neutral"
+                    color = 'lightgray'
+                
+                # Create button with callback
+                button = Button(button_ax[key], label, color=color)
+                button.on_clicked(lambda event, val=value: self._provide_feedback(val))
+            
+            # Text for feedback status
+            self.feedback_text = self.ax.text(0.5, 0.8, "Awaiting feedback...",
+                                           ha='center', va='center', fontsize=12)
+            
+            # Show the figure (non-blocking)
+            plt.show(block=False)
+            
+            self.logger.info("Feedback UI initialized")
+            
         except ImportError:
-            self.logger.warning("Keyboard module not available, keyboard feedback disabled")
-        except Exception as e:
-            self.logger.error(f"Error setting up keyboard handlers: {e}")
+            self.logger.warning("Matplotlib not available, disabling feedback UI")
+            self.feedback_ui_enabled = False
     
-    def _keyboard_callback(self, e):
-        """
-        Handle keyboard events for feedback.
-        
-        Args:
-            e: Keyboard event
-        """
-        # Check cooldown to prevent rapid-fire feedback
-        current_time = time.time()
-        if current_time - self.last_feedback_time < self.feedback_cooldown:
-            return
-        
-        # Process the key if it's in our feedback keys
-        key = e.name if hasattr(e, 'name') else e.char
-        if key in self.feedback_keys:
-            feedback = self.feedback_keys[key]
-            self._provide_feedback(feedback)
-            self.last_feedback_time = current_time
-    
-    def _provide_feedback(self, feedback_value):
+    def _provide_feedback(self, value: float) -> None:
         """
         Provide feedback to the environment.
         
         Args:
-            feedback_value (float): Feedback value
+            value (float): Feedback value
         """
-        if self.verbose > 0:
-            sign = "+" if feedback_value > 0 else ("-" if feedback_value < 0 else "0")
-            self.logger.info(f"Step {self.num_timesteps}: Human feedback provided: {sign} ({feedback_value})")
-        
-        # Apply feedback to the training environment
-        # VecEnv requires special handling with env_method
-        self.training_env.env_method("provide_human_feedback", feedback_value)
+        # Check if the environment has a provide_human_feedback method
+        if hasattr(self.training_env, 'provide_human_feedback'):
+            self.training_env.provide_human_feedback(value)
+            self.logger.info(f"Provided feedback: {value}")
+            
+            # Update UI text if available
+            if self.feedback_ui_enabled and hasattr(self, 'feedback_text'):
+                if value > 0:
+                    text = f"Positive feedback: +{value}"
+                    color = 'green'
+                elif value < 0:
+                    text = f"Negative feedback: {value}"
+                    color = 'red'
+                else:
+                    text = "Neutral feedback: 0"
+                    color = 'black'
+                
+                self.feedback_text.set_text(text)
+                self.feedback_text.set_color(color)
+                
+                # Refresh the plot
+                if hasattr(self, 'fig'):
+                    self.fig.canvas.draw_idle()
+                    self.fig.canvas.flush_events()
     
-    def _on_step(self):
+    def _check_keyboard_input(self) -> None:
+        """Check for keyboard input and convert to feedback."""
+        for key, value in self.feedback_keys.items():
+            if keyboard.is_pressed(key):
+                self._provide_feedback(value)
+                # Sleep briefly to avoid multiple triggers
+                time.sleep(0.1)
+                return
+    
+    def _on_step(self) -> bool:
         """
-        Callback called at each step.
-        
-        Checks if it's time to request feedback and processes automatic feedback
-        for simulation purposes.
+        Called at each step of training.
         
         Returns:
-            bool: Whether to continue training
+            bool: Whether training should continue
         """
-        # Check if it's time to prompt for feedback
-        if self.num_timesteps % self.feedback_frequency == 0:
-            # In simulation mode, generate synthetic feedback
-            if not self.feedback_ui_enabled and not keyboard:
-                # Simulate human feedback (-1 to +1)
-                feedback = np.random.uniform(-0.5, 1.0)  # Biased toward positive feedback
-                
-                # Apply feedback to the environment
-                self._provide_feedback(feedback)
+        # Check for feedback at specified frequency
+        if self.num_timesteps - self.last_feedback_step >= self.feedback_frequency:
+            try:
+                self._check_keyboard_input()
+            except Exception as e:
+                self.logger.error(f"Error checking keyboard input: {e}")
             
-            # If UI is enabled, it would be handled by the UI event loop
-            # Just log a message that feedback is being requested
-            elif self.feedback_ui_enabled:
-                if self.verbose > 0:
-                    self.logger.info(f"Step {self.num_timesteps}: Requesting human feedback via UI")
+            self.last_feedback_step = self.num_timesteps
+        
+        # Update feedback UI if enabled
+        if self.feedback_ui_enabled and hasattr(self, 'fig'):
+            try:
+                self.fig.canvas.flush_events()
+            except:
+                pass
         
         return True
+    
+    def _on_training_end(self) -> None:
+        """Called at the end of training."""
+        # Close the feedback UI if it exists
+        if self.feedback_ui_enabled and hasattr(self, 'fig'):
+            try:
+                plt.close(self.fig)
+            except:
+                pass
 
 
 class GoalAdjustmentCallback(BaseCallback):
     """
-    Callback for adjusting goals based on agent performance.
+    Callback for adjusting goals based on performance.
     
-    This callback modifies the goal parameters based on the agent's
-    performance, implementing the "Goal Definition" component of the
-    architecture diagram.
+    This callback periodically evaluates the agent's performance and adjusts
+    the difficulty of the goal accordingly.
     
     Attributes:
-        evaluation_frequency (int): How often to evaluate and adjust goals (in steps)
-        success_threshold (float): Performance threshold for goal adjustment
-        difficulty_levels (List[str]): Available difficulty levels
-        current_difficulty_idx (int): Index of current difficulty level
-        verbose (int): Verbosity level
-        logger (logging.Logger): Logger for the callback
+        evaluation_frequency (int): How often to evaluate performance (in steps)
+        success_threshold (float): Threshold for considering a goal successful
+        difficulty_levels (List[str]): List of difficulty levels
+        start_difficulty (str): Initial difficulty level
+        current_difficulty (str): Current difficulty level
+        successes (int): Number of successful episodes
+        episodes (int): Total number of episodes
     """
     
     def __init__(
@@ -183,142 +225,117 @@ class GoalAdjustmentCallback(BaseCallback):
         Initialize the goal adjustment callback.
         
         Args:
-            evaluation_frequency (int): How often to evaluate and adjust goals (in steps)
-            success_threshold (float): Performance threshold for increasing difficulty
-            difficulty_levels (List[str]): Available difficulty levels
-            start_difficulty (str): Starting difficulty level
+            evaluation_frequency (int): How often to evaluate performance (in steps)
+            success_threshold (float): Threshold for considering a goal successful
+            difficulty_levels (List[str]): List of difficulty levels
+            start_difficulty (str): Initial difficulty level
             verbose (int): Verbosity level
         """
-        super(GoalAdjustmentCallback, self).__init__(verbose)
+        super().__init__(verbose)
         self.evaluation_frequency = evaluation_frequency
         self.success_threshold = success_threshold
         self.difficulty_levels = difficulty_levels
+        self.start_difficulty = start_difficulty
+        self.current_difficulty = start_difficulty
         
-        # Set initial difficulty
-        if start_difficulty in difficulty_levels:
-            self.current_difficulty_idx = difficulty_levels.index(start_difficulty)
-        else:
-            self.current_difficulty_idx = 0
-            
         # Performance tracking
-        self.episode_rewards = []
-        self.episode_successes = []
-        self.current_episode_reward = 0
-        self.last_reset_step = 0
+        self.successes = 0
+        self.episodes = 0
+        self.last_eval_step = 0
         
-        # Initialize logger
         self.logger = logging.getLogger('GoalAdjustmentCallback')
-        self.logger.info(f"Initialized with evaluation_frequency={evaluation_frequency}, "
-                         f"start_difficulty={start_difficulty}")
     
-    def _on_step(self):
-        """
-        Callback called at each step.
-        
-        Tracks episode rewards and checks if it's time to adjust the goal.
-        
-        Returns:
-            bool: Whether to continue training
-        """
-        # Get info from the environment (assuming vectorized environment)
-        info = self.locals.get('infos')[0]
-        
-        # Track episode rewards
-        self.current_episode_reward += self.locals.get('rewards')[0]
-        
-        # Check for episode end
-        done = self.locals.get('dones')[0]
-        if done:
-            # Record episode statistics
-            self.episode_rewards.append(self.current_episode_reward)
-            
-            # Check for success (if reported by environment)
-            success = info.get('is_success', False)
-            self.episode_successes.append(float(success))
-            
-            # Reset tracking
-            self.current_episode_reward = 0
-            self.last_reset_step = self.num_timesteps
-            
-            self.logger.debug(f"Episode ended at step {self.num_timesteps}, success: {success}")
-        
-        # Check if it's time to evaluate and adjust goals
-        if (self.num_timesteps % self.evaluation_frequency == 0) and (self.num_timesteps > 0):
-            self._adjust_goal_difficulty()
-        
-        return True
+    def _init_callback(self) -> None:
+        """Initialize the callback when training starts."""
+        # Set initial difficulty
+        if hasattr(self.training_env, 'set_goal'):
+            self.training_env.set_goal(self.start_difficulty)
+            self.logger.info(f"Initial goal difficulty set to {self.start_difficulty}")
     
-    def _adjust_goal_difficulty(self):
-        """
-        Adjust goal difficulty based on agent performance.
-        
-        Increases difficulty if agent is performing well, decreases if struggling.
-        """
-        # Skip if no episodes completed
-        if len(self.episode_successes) == 0:
+    def _adjust_difficulty(self) -> None:
+        """Adjust goal difficulty based on performance."""
+        # Calculate success rate
+        if self.episodes == 0:
             return
         
-        # Calculate success rate over recent episodes
-        recent_episodes = min(len(self.episode_successes), 10)  # Last 10 episodes
-        success_rate = np.mean(self.episode_successes[-recent_episodes:])
+        success_rate = self.successes / self.episodes
+        self.logger.info(f"Performance evaluation: Success rate = {success_rate:.2f} "
+                        f"({self.successes}/{self.episodes})")
         
-        # Calculate average reward
-        avg_reward = np.mean(self.episode_rewards[-recent_episodes:])
+        # Determine if difficulty should be changed
+        current_idx = self.difficulty_levels.index(self.current_difficulty)
         
-        # Log current performance
-        self.logger.info(f"Current performance - Success rate: {success_rate:.2f}, "
-                         f"Average reward: {avg_reward:.2f}, "
-                         f"Difficulty: {self.difficulty_levels[self.current_difficulty_idx]}")
+        if success_rate >= self.success_threshold and current_idx < len(self.difficulty_levels) - 1:
+            # Increase difficulty
+            new_difficulty = self.difficulty_levels[current_idx + 1]
+            self.logger.info(f"Increasing difficulty from {self.current_difficulty} to {new_difficulty}")
+            self.current_difficulty = new_difficulty
+            
+            # Apply new difficulty
+            if hasattr(self.training_env, 'set_goal'):
+                self.training_env.set_goal(self.current_difficulty)
         
-        # Adjust difficulty based on success rate
-        if success_rate >= self.success_threshold:
-            # Agent is doing well, increase difficulty if not already at max
-            if self.current_difficulty_idx < len(self.difficulty_levels) - 1:
-                self.current_difficulty_idx += 1
-                new_difficulty = self.difficulty_levels[self.current_difficulty_idx]
-                self._set_new_goal(new_difficulty)
-                self.logger.info(f"Increasing difficulty to {new_difficulty}")
-        elif success_rate < 0.3:  # Arbitrary threshold for poor performance
-            # Agent is struggling, decrease difficulty if not already at min
-            if self.current_difficulty_idx > 0:
-                self.current_difficulty_idx -= 1
-                new_difficulty = self.difficulty_levels[self.current_difficulty_idx]
-                self._set_new_goal(new_difficulty)
-                self.logger.info(f"Decreasing difficulty to {new_difficulty}")
+        elif success_rate < self.success_threshold / 2 and current_idx > 0:
+            # Decrease difficulty
+            new_difficulty = self.difficulty_levels[current_idx - 1]
+            self.logger.info(f"Decreasing difficulty from {self.current_difficulty} to {new_difficulty}")
+            self.current_difficulty = new_difficulty
+            
+            # Apply new difficulty
+            if hasattr(self.training_env, 'set_goal'):
+                self.training_env.set_goal(self.current_difficulty)
+        
+        # Reset counters
+        self.successes = 0
+        self.episodes = 0
     
-    def _set_new_goal(self, difficulty):
+    def _on_step(self) -> bool:
         """
-        Set a new goal with the specified difficulty.
+        Called at each step of training.
         
-        Args:
-            difficulty (str): New difficulty level
+        Returns:
+            bool: Whether training should continue
         """
-        # Apply to all environments (assuming vectorized environment)
-        self.training_env.env_method("set_goal", difficulty)
+        # Check for episode termination
+        done = self.locals.get('dones', [False])[0]
         
-        # Reset performance tracking for the new goal
-        self.episode_successes = []
-        self.episode_rewards = []
+        if done:
+            # Update episode counter
+            self.episodes += 1
+            
+            # Check if goal was achieved
+            info = self.locals.get('infos', [{}])[0]
+            if info.get('is_success', False) or info.get('person_found', False):
+                self.successes += 1
+        
+        # Evaluate and adjust difficulty periodically
+        if self.num_timesteps - self.last_eval_step >= self.evaluation_frequency and self.episodes > 0:
+            self._adjust_difficulty()
+            self.last_eval_step = self.num_timesteps
+        
+        return True
 
 
 class LoggingCallback(BaseCallback):
     """
-    Callback for enhanced logging during training.
-    
-    This callback provides detailed logging of training metrics,
-    environment states, and model performance.
+    Callback for logging training progress and saving checkpoints.
     
     Attributes:
-        log_frequency (int): How often to log detailed information (in steps)
-        log_dir (str): Directory to save log files
-        verbose (int): Verbosity level
-        logger (logging.Logger): Logger for the callback
+        log_frequency (int): How often to log progress (in steps)
+        log_dir (str): Directory for logs
+        save_frequency (int): How often to save checkpoints (in steps)
+        last_log_step (int): Last step when progress was logged
+        last_save_step (int): Last step when checkpoint was saved
+        rewards (List[float]): List of episodic rewards
+        episode_lengths (List[int]): List of episode lengths
+        current_episode_reward (float): Reward for current episode
+        current_episode_length (int): Length of current episode
     """
     
     def __init__(
         self,
         log_frequency: int = 1000,
-        log_dir: str = "logs",
+        log_dir: str = 'logs',
         save_frequency: int = 10000,
         verbose: int = 0
     ):
@@ -326,173 +343,244 @@ class LoggingCallback(BaseCallback):
         Initialize the logging callback.
         
         Args:
-            log_frequency (int): How often to log detailed information (in steps)
-            log_dir (str): Directory to save log files
-            save_frequency (int): How often to save detailed statistics
+            log_frequency (int): How often to log progress (in steps)
+            log_dir (str): Directory for logs
+            save_frequency (int): How often to save checkpoints (in steps)
             verbose (int): Verbosity level
         """
-        super(LoggingCallback, self).__init__(verbose)
+        super().__init__(verbose)
         self.log_frequency = log_frequency
         self.log_dir = log_dir
         self.save_frequency = save_frequency
         
-        # Ensure log directory exists
-        os.makedirs(log_dir, exist_ok=True)
+        # Logging state
+        self.last_log_step = 0
+        self.last_save_step = 0
         
-        # Tracking variables
-        self.episode_rewards = []
-        self.current_episode_reward = 0
+        # Episode tracking
+        self.rewards = []
         self.episode_lengths = []
+        self.current_episode_reward = 0
         self.current_episode_length = 0
         
-        # Initialize logger
         self.logger = logging.getLogger('LoggingCallback')
-        self.logger.info(f"Initialized with log_frequency={log_frequency}, "
-                         f"log_dir={log_dir}")
-    
-    def _on_step(self):
-        """
-        Callback called at each step.
         
-        Tracks performance metrics and logs them at the specified frequency.
+        # Create log directory if it doesn't exist
+        os.makedirs(log_dir, exist_ok=True)
+    
+    def _init_callback(self) -> None:
+        """Initialize the callback when training starts."""
+        # Initialize episode tracking
+        self.current_episode_reward = 0
+        self.current_episode_length = 0
+    
+    def _log_progress(self) -> None:
+        """Log training progress."""
+        # Calculate statistics
+        timesteps = self.num_timesteps
+        episodes = len(self.rewards)
+        
+        if episodes > 0:
+            mean_reward = np.mean(self.rewards[-100:])
+            median_reward = np.median(self.rewards[-100:])
+            min_reward = np.min(self.rewards[-100:])
+            max_reward = np.max(self.rewards[-100:])
+            std_reward = np.std(self.rewards[-100:])
+            
+            mean_length = np.mean(self.episode_lengths[-100:])
+            median_length = np.median(self.episode_lengths[-100:])
+            
+            # Log to console
+            self.logger.info(
+                f"Timesteps: {timesteps}, Episodes: {episodes}\n"
+                f"Mean reward: {mean_reward:.2f}, Median: {median_reward:.2f}\n"
+                f"Min: {min_reward:.2f}, Max: {max_reward:.2f}, Std: {std_reward:.2f}\n"
+                f"Mean episode length: {mean_length:.2f}, Median: {median_length:.2f}"
+            )
+            
+            # Log to file
+            log_file = os.path.join(self.log_dir, 'training_log.csv')
+            header = "timestep,episodes,mean_reward,median_reward,min_reward,max_reward,std_reward,mean_length,median_length"
+            
+            if not os.path.exists(log_file):
+                with open(log_file, 'w') as f:
+                    f.write(header + '\n')
+            
+            with open(log_file, 'a') as f:
+                f.write(f"{timesteps},{episodes},{mean_reward},{median_reward},{min_reward},"
+                       f"{max_reward},{std_reward},{mean_length},{median_length}\n")
+            
+            # Create a simple reward plot
+            self._plot_rewards()
+    
+    def _plot_rewards(self) -> None:
+        """Create and save a plot of rewards."""
+        try:
+            # Create figure
+            fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(10, 8), sharex=True)
+            
+            # Plot rewards
+            episodes = np.arange(1, len(self.rewards) + 1)
+            ax1.plot(episodes, self.rewards, 'b-')
+            
+            # Add smoothed line
+            if len(self.rewards) > 10:
+                window_size = min(len(self.rewards) // 10, 100)
+                smoothed_rewards = np.convolve(
+                    self.rewards, np.ones(window_size) / window_size, mode='valid'
+                )
+                smoothed_episodes = np.arange(window_size, len(self.rewards) + 1)
+                ax1.plot(smoothed_episodes, smoothed_rewards, 'r-', linewidth=2)
+            
+            ax1.set_ylabel('Episode Reward')
+            ax1.set_title('Training Progress')
+            ax1.grid(True)
+            
+            # Plot episode lengths
+            ax2.plot(episodes, self.episode_lengths, 'g-')
+            
+            # Add smoothed line
+            if len(self.episode_lengths) > 10:
+                window_size = min(len(self.episode_lengths) // 10, 100)
+                smoothed_lengths = np.convolve(
+                    self.episode_lengths, np.ones(window_size) / window_size, mode='valid'
+                )
+                ax2.plot(smoothed_episodes, smoothed_lengths, 'm-', linewidth=2)
+            
+            ax2.set_xlabel('Episode')
+            ax2.set_ylabel('Episode Length')
+            ax2.grid(True)
+            
+            plt.tight_layout()
+            
+            # Save plot
+            plot_file = os.path.join(self.log_dir, 'reward_plot.png')
+            plt.savefig(plot_file)
+            plt.close(fig)
+            
+        except Exception as e:
+            self.logger.error(f"Error creating reward plot: {e}")
+    
+    def _save_checkpoint(self) -> None:
+        """Save a checkpoint of the model."""
+        checkpoint_dir = os.path.join(self.log_dir, 'checkpoints')
+        os.makedirs(checkpoint_dir, exist_ok=True)
+        
+        timestamp = time.strftime("%Y%m%d-%H%M%S")
+        checkpoint_path = os.path.join(
+            checkpoint_dir, f"model_{self.num_timesteps}_{timestamp}"
+        )
+        
+        try:
+            self.model.save(checkpoint_path)
+            self.logger.info(f"Saved checkpoint to {checkpoint_path}")
+            
+            # Save episode data
+            stats_path = os.path.join(checkpoint_dir, f"stats_{timestamp}.npz")
+            np.savez(
+                stats_path,
+                rewards=np.array(self.rewards),
+                episode_lengths=np.array(self.episode_lengths),
+                timesteps=np.array(self.num_timesteps)
+            )
+            
+        except Exception as e:
+            self.logger.error(f"Error saving checkpoint: {e}")
+    
+    def _on_step(self) -> bool:
+        """
+        Called at each step of training.
         
         Returns:
-            bool: Whether to continue training
+            bool: Whether training should continue
         """
-        # Update episode tracking
-        self.current_episode_reward += self.locals.get('rewards')[0]
-        self.current_episode_length += 1
+        # Update current episode stats
+        if len(self.locals.get('rewards', [])) > 0:
+            reward = self.locals['rewards'][0]
+            self.current_episode_reward += reward
+            self.current_episode_length += 1
         
-        # Check for episode end
-        done = self.locals.get('dones')[0]
+        # Check for episode termination
+        done = self.locals.get('dones', [False])[0]
         if done:
-            # Record episode statistics
-            self.episode_rewards.append(self.current_episode_reward)
+            # Record episode stats
+            self.rewards.append(self.current_episode_reward)
             self.episode_lengths.append(self.current_episode_length)
             
-            # Log episode completion
-            self.logger.info(f"Episode completed: reward={self.current_episode_reward:.2f}, "
-                            f"length={self.current_episode_length}")
-            
-            # Reset tracking
+            # Reset episode stats
             self.current_episode_reward = 0
             self.current_episode_length = 0
         
-        # Log detailed information at specified frequency
-        if (self.num_timesteps % self.log_frequency == 0) and (self.num_timesteps > 0):
-            self._log_training_status()
+        # Log progress periodically
+        if self.num_timesteps - self.last_log_step >= self.log_frequency:
+            self._log_progress()
+            self.last_log_step = self.num_timesteps
         
-        # Save detailed statistics at specified frequency
-        if (self.num_timesteps % self.save_frequency == 0) and (self.num_timesteps > 0):
-            self._save_training_statistics()
+        # Save checkpoint periodically
+        if self.num_timesteps - self.last_save_step >= self.save_frequency:
+            self._save_checkpoint()
+            self.last_save_step = self.num_timesteps
         
         return True
-    
-    def _log_training_status(self):
-        """
-        Log detailed information about training status.
-        """
-        # Skip if no episodes completed
-        if len(self.episode_rewards) == 0:
-            return
-        
-        # Calculate statistics over recent episodes
-        recent_episodes = min(len(self.episode_rewards), 10)  # Last 10 episodes
-        avg_reward = np.mean(self.episode_rewards[-recent_episodes:])
-        avg_length = np.mean(self.episode_lengths[-recent_episodes:])
-        
-        # Get additional metrics from the model
-        if hasattr(self.model, 'logger') and hasattr(self.model.logger, 'name_to_value'):
-            metrics = self.model.logger.name_to_value
-            metrics_str = ", ".join([f"{k}: {v:.4f}" for k, v in metrics.items()])
-            
-            self.logger.info(f"Step {self.num_timesteps}: Avg reward: {avg_reward:.2f}, "
-                            f"Avg length: {avg_length:.2f}, {metrics_str}")
-        else:
-            self.logger.info(f"Step {self.num_timesteps}: Avg reward: {avg_reward:.2f}, "
-                            f"Avg length: {avg_length:.2f}")
-    
-    def _save_training_statistics(self):
-        """
-        Save detailed training statistics to disk.
-        """
-        # Create a statistics dictionary
-        stats = {
-            'timesteps': self.num_timesteps,
-            'episodes_completed': len(self.episode_rewards),
-            'episode_rewards': self.episode_rewards,
-            'episode_lengths': self.episode_lengths,
-            'mean_reward': np.mean(self.episode_rewards) if self.episode_rewards else 0,
-            'std_reward': np.std(self.episode_rewards) if self.episode_rewards else 0,
-            'mean_length': np.mean(self.episode_lengths) if self.episode_lengths else 0,
-            'std_length': np.std(self.episode_lengths) if self.episode_lengths else 0,
-        }
-        
-        # Add model-specific metrics if available
-        if hasattr(self.model, 'logger') and hasattr(self.model.logger, 'name_to_value'):
-            stats.update(self.model.logger.name_to_value)
-        
-        # Save to file
-        timestamp = time.strftime("%Y%m%d-%H%M%S")
-        filename = os.path.join(self.log_dir, f"stats_{self.num_timesteps}_{timestamp}.npz")
-        np.savez(filename, **stats)
-        
-        self.logger.info(f"Saved training statistics to {filename}")
 
 
 class CombinedCallback(BaseCallback):
     """
-    Wrapper to combine multiple callbacks.
+    Callback for combining multiple callbacks into one.
     
-    This allows multiple callbacks to be used together in a coordinated way.
+    This allows for using multiple callbacks together while maintaining
+    a clean interface for the training loop.
     
     Attributes:
-        callbacks (List[BaseCallback]): List of callbacks to execute
+        callbacks (List[BaseCallback]): List of callbacks to combine
     """
     
-    def __init__(self, callbacks: List[BaseCallback]):
+    def __init__(self, callbacks: List[BaseCallback], verbose: int = 0):
         """
         Initialize the combined callback.
         
         Args:
-            callbacks (List[BaseCallback]): List of callbacks to execute
+            callbacks (List[BaseCallback]): List of callbacks to combine
+            verbose (int): Verbosity level
         """
-        super(CombinedCallback, self).__init__(verbose=0)
+        super().__init__(verbose)
         self.callbacks = callbacks
-        self.logger = logging.getLogger('CombinedCallback')
-        self.logger.info(f"Initialized with {len(callbacks)} callbacks")
     
-    def _init_callback(self):
+    def _init_callback(self) -> None:
         """Initialize all callbacks."""
         for callback in self.callbacks:
             callback._init_callback()
     
-    def _on_step(self):
+    def _on_training_start(self) -> None:
+        """Called at the start of training."""
+        for callback in self.callbacks:
+            callback.on_training_start(
+                locals=self.locals,
+                globals=self.globals
+            )
+    
+    def _on_step(self) -> bool:
         """
-        Execute all callbacks at each step.
+        Called at each step of training.
         
         Returns:
-            bool: Whether to continue training (False if any callback returns False)
+            bool: Whether training should continue (False if any callback returns False)
         """
-        continue_training = True
-        
+        # Update callback locals and globals
         for callback in self.callbacks:
-            # Update callback locals and globals
-            callback.locals = self.locals
-            callback.globals = self.globals
-            
-            # Execute the callback
+            callback.update_locals(self.locals)
+            callback.update_globals(self.globals)
+        
+        # Call each callback's _on_step method
+        continue_training = True
+        for callback in self.callbacks:
             result = callback._on_step()
+            # If any callback returns False, stop training
             continue_training = continue_training and result
         
         return continue_training
     
-    def _on_training_start(self):
-        """Notify all callbacks that training is starting."""
+    def _on_training_end(self) -> None:
+        """Called at the end of training."""
         for callback in self.callbacks:
-            callback._on_training_start()
-    
-    def _on_training_end(self):
-        """Notify all callbacks that training is ending."""
-        for callback in self.callbacks:
-            callback._on_training_end()
+            callback.on_training_end()
