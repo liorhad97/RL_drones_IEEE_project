@@ -1,0 +1,85 @@
+# Configuration for RL Drone System
+
+# Environment configuration
+environment:
+  gui: true
+  noise_std: 0.01
+  use_lidar: true
+  goal_difficulty: medium
+
+# Training configuration
+training:
+  algorithm: sac  # Options: sac, td3, ppo, a2c
+  timesteps: 100000
+  seed: 42
+  
+  # Common parameters
+  learning_rate: 0.0003
+  gamma: 0.99
+  
+  # Replay buffer parameters (for off-policy algorithms)
+  buffer_size: 1000000
+  batch_size: 256
+  learning_starts: 100
+  
+  # SAC specific parameters
+  tau: 0.005
+  train_freq: 1
+  gradient_steps: 1
+  
+  # TD3 specific parameters
+  policy_delay: 2
+  noise_type: normal
+  noise_std: 0.1
+  
+  # PPO specific parameters
+  n_steps: 2048
+  n_epochs: 10
+  clip_range: 0.2
+  
+  # A2C specific parameters
+  gae_lambda: 1.0
+  ent_coef: 0.0
+  vf_coef: 0.5
+
+# Model configuration
+model:
+  policy: MlpPolicy
+  policy_kwargs:
+    net_arch:
+      pi: [256, 256]
+      qf: [256, 256]
+
+# Human feedback configuration
+human_feedback:
+  enabled: true
+  feedback_frequency: 20
+  feedback_ui_enabled: false
+  feedback_keys:
+    '+': 1.0
+    '-': -1.0
+    '0': 0.0
+
+# Goal adjustment configuration
+goal_adjustment:
+  enabled: true
+  evaluation_frequency: 5000
+  success_threshold: 0.8
+  difficulty_levels:
+    - easy
+    - medium
+    - hard
+  start_difficulty: easy
+
+# Logging configuration
+logging:
+  log_level: info
+  log_frequency: 1000
+  save_frequency: 10000
+  log_dir: logs
+
+# Output configuration
+output:
+  model_dir: models
+  visualization_dir: visualizations
+  checkpoint_frequency: 10000
