@@ -3,3 +3,185 @@
 2025-04-16 21:56:43,315 - EnhancedDroneEnv - INFO - Goal set to [1.  1.  1.5] (difficulty: medium)
 2025-04-16 21:56:43,315 - EnhancedDroneEnv - INFO - Initialized with noise_std=0.01, use_lidar=True, goal_difficulty=medium
 2025-04-16 21:56:43,315 - EnhancedDroneEnv - INFO - Goal set to [1.  1.  1.5]
+2025-04-16 22:00:28,596 - root - INFO - Logging initialized
+2025-04-16 22:00:28,596 - root - INFO - Starting Person Finder Drone
+2025-04-16 22:00:29,888 - EnhancedDroneEnv - INFO - Goal set to [1.  1.  1.5] (difficulty: medium)
+2025-04-16 22:00:29,888 - EnhancedDroneEnv - INFO - Initialized with noise_std=0.01, use_lidar=True, goal_difficulty=medium
+2025-04-16 22:00:29,888 - EnhancedDroneEnv - INFO - Goal set to [1.  1.  1.5]
+2025-04-16 22:00:29,888 - EnhancedDroneEnv - INFO - Original observation space shape: (1, 72)
+2025-04-16 22:00:29,889 - EnhancedDroneEnv - INFO - Extended observation space from (1, 72) to (73,)
+2025-04-16 22:00:29,889 - PersonDetector - INFO - Using simulated person detection
+2025-04-16 22:00:29,889 - EnhancedDroneEnv - INFO - Original observation space shape in PersonFinderEnv: (73,)
+2025-04-16 22:00:29,889 - EnhancedDroneEnv - INFO - Extended observation space to (76,)
+2025-04-16 22:00:29,889 - EnhancedDroneEnv - INFO - Initialized PersonFinderEnv with camera_enabled=True, use_visual_goal=True, simulate_detection=True
+2025-04-16 22:00:29,891 - EnhancedDroneEnv - INFO - Extracted features from target image
+2025-04-16 22:00:29,891 - EnhancedDroneEnv - INFO - Set visual person goal
+2025-04-16 22:02:48,861 - root - INFO - Logging initialized
+2025-04-16 22:02:48,861 - root - INFO - Starting Person Finder Drone
+2025-04-16 22:02:50,291 - EnhancedDroneEnv - INFO - Goal set to [1.  1.  1.5] (difficulty: medium)
+2025-04-16 22:02:50,291 - EnhancedDroneEnv - INFO - Initialized with noise_std=0.01, use_lidar=True, goal_difficulty=medium
+2025-04-16 22:02:50,291 - EnhancedDroneEnv - INFO - Goal set to [1.  1.  1.5]
+2025-04-16 22:02:50,291 - EnhancedDroneEnv - INFO - Original observation space shape: (1, 72)
+2025-04-16 22:02:50,292 - EnhancedDroneEnv - INFO - Extended observation space from (1, 72) to (73,)
+2025-04-16 22:02:50,292 - PersonDetector - INFO - Using simulated person detection
+2025-04-16 22:02:50,292 - EnhancedDroneEnv - INFO - Original observation space shape in PersonFinderEnv: (73,)
+2025-04-16 22:02:50,292 - EnhancedDroneEnv - INFO - Extended observation space to (76,)
+2025-04-16 22:02:50,292 - EnhancedDroneEnv - INFO - Initialized PersonFinderEnv with camera_enabled=True, use_visual_goal=True, simulate_detection=True
+2025-04-16 22:02:50,295 - EnhancedDroneEnv - INFO - Extracted features from target image
+2025-04-16 22:02:50,295 - EnhancedDroneEnv - INFO - Set visual person goal
+2025-04-16 22:06:23,186 - root - INFO - Logging initialized
+2025-04-16 22:06:23,186 - root - INFO - Starting Person Finder Drone
+2025-04-16 22:06:24,591 - EnhancedDroneEnv - INFO - Goal set to [1.  1.  1.5] (difficulty: medium)
+2025-04-16 22:06:24,592 - EnhancedDroneEnv - INFO - Initialized with noise_std=0.01, use_lidar=True, goal_difficulty=medium
+2025-04-16 22:06:24,592 - EnhancedDroneEnv - INFO - Goal set to [1.  1.  1.5]
+2025-04-16 22:06:24,592 - EnhancedDroneEnv - INFO - Original observation space shape: (1, 72)
+2025-04-16 22:06:24,592 - EnhancedDroneEnv - INFO - Extended observation space from (1, 72) to (73,)
+2025-04-16 22:06:24,592 - PersonDetector - INFO - Using simulated person detection
+2025-04-16 22:06:24,592 - EnhancedDroneEnv - INFO - Original observation space shape in PersonFinderEnv: (73,)
+2025-04-16 22:06:24,593 - EnhancedDroneEnv - INFO - Extended observation space to (76,)
+2025-04-16 22:06:24,593 - EnhancedDroneEnv - INFO - Initialized PersonFinderEnv with camera_enabled=True, use_visual_goal=True, simulate_detection=True
+2025-04-16 22:06:24,594 - EnhancedDroneEnv - INFO - Extracted features from target image
+2025-04-16 22:06:24,595 - EnhancedDroneEnv - INFO - Set visual person goal
+2025-04-16 22:08:34,880 - root - INFO - Logging initialized
+2025-04-16 22:08:34,880 - root - INFO - Starting Person Finder Drone
+2025-04-16 22:08:36,286 - EnhancedDroneEnv - INFO - Goal set to [1.  1.  1.5] (difficulty: medium)
+2025-04-16 22:08:36,286 - EnhancedDroneEnv - INFO - Initialized with noise_std=0.01, use_lidar=True, goal_difficulty=medium
+2025-04-16 22:08:36,286 - EnhancedDroneEnv - INFO - Goal set to [1.  1.  1.5]
+2025-04-16 22:08:36,286 - EnhancedDroneEnv - INFO - Original observation space shape: (1, 72)
+2025-04-16 22:08:36,287 - EnhancedDroneEnv - INFO - Extended observation space from (1, 72) to (73,)
+2025-04-16 22:08:36,287 - PersonDetector - INFO - Using simulated person detection
+2025-04-16 22:08:36,287 - EnhancedDroneEnv - INFO - Original observation space shape in PersonFinderEnv: (73,)
+2025-04-16 22:08:36,288 - EnhancedDroneEnv - INFO - Extended observation space to (76,)
+2025-04-16 22:08:36,288 - EnhancedDroneEnv - INFO - Initialized PersonFinderEnv with camera_enabled=True, use_visual_goal=True, simulate_detection=True
+2025-04-16 22:08:36,288 - EnhancedDroneEnv - INFO - Extracted features from target image
+2025-04-16 22:08:36,288 - EnhancedDroneEnv - INFO - Set visual person goal
+2025-04-16 22:11:26,323 - root - INFO - Logging initialized
+2025-04-16 22:11:26,324 - root - INFO - Starting Person Finder Drone
+2025-04-16 22:11:27,691 - EnhancedDroneEnv - INFO - Goal set to [1.  1.  1.5] (difficulty: medium)
+2025-04-16 22:11:27,691 - EnhancedDroneEnv - INFO - Initialized with noise_std=0.01, use_lidar=True, goal_difficulty=medium
+2025-04-16 22:11:27,691 - EnhancedDroneEnv - INFO - Goal set to [1.  1.  1.5]
+2025-04-16 22:11:27,691 - EnhancedDroneEnv - INFO - Original observation space shape: (1, 72)
+2025-04-16 22:11:27,691 - EnhancedDroneEnv - INFO - Extended observation space from (1, 72) to (73,)
+2025-04-16 22:11:27,692 - PersonDetector - INFO - Using simulated person detection
+2025-04-16 22:11:27,692 - EnhancedDroneEnv - INFO - Original observation space shape in PersonFinderEnv: (73,)
+2025-04-16 22:11:27,692 - EnhancedDroneEnv - INFO - Extended observation space to (76,)
+2025-04-16 22:11:27,692 - EnhancedDroneEnv - INFO - Initialized PersonFinderEnv with camera_enabled=True, use_visual_goal=True, simulate_detection=True
+2025-04-16 22:11:27,693 - EnhancedDroneEnv - INFO - Extracted features from target image
+2025-04-16 22:11:27,693 - EnhancedDroneEnv - INFO - Set visual person goal
+2025-04-16 22:12:39,017 - root - INFO - Logging initialized
+2025-04-16 22:12:39,017 - root - INFO - Starting Person Finder Drone
+2025-04-16 22:12:40,330 - EnhancedDroneEnv - INFO - Goal set to [1.  1.  1.5] (difficulty: medium)
+2025-04-16 22:12:40,330 - EnhancedDroneEnv - INFO - Initialized with noise_std=0.01, use_lidar=True, goal_difficulty=medium
+2025-04-16 22:12:40,330 - EnhancedDroneEnv - INFO - Goal set to [1.  1.  1.5]
+2025-04-16 22:12:40,330 - EnhancedDroneEnv - INFO - Original observation space shape: (1, 72)
+2025-04-16 22:12:40,331 - EnhancedDroneEnv - INFO - Extended observation space from (1, 72) to (73,)
+2025-04-16 22:12:40,331 - PersonDetector - INFO - Using simulated person detection
+2025-04-16 22:12:40,331 - EnhancedDroneEnv - INFO - Original observation space shape in PersonFinderEnv: (73,)
+2025-04-16 22:12:40,332 - EnhancedDroneEnv - INFO - Extended observation space to (76,)
+2025-04-16 22:12:40,332 - EnhancedDroneEnv - INFO - Initialized PersonFinderEnv with camera_enabled=True, use_visual_goal=True, simulate_detection=True
+2025-04-16 22:12:40,332 - EnhancedDroneEnv - INFO - Extracted features from target image
+2025-04-16 22:12:40,332 - EnhancedDroneEnv - INFO - Set visual person goal
+2025-04-16 22:14:18,871 - root - INFO - Logging initialized
+2025-04-16 22:14:18,871 - root - INFO - Starting Person Finder Drone
+2025-04-16 22:14:20,243 - EnhancedDroneEnv - INFO - Goal set to [1.  1.  1.5] (difficulty: medium)
+2025-04-16 22:14:20,243 - EnhancedDroneEnv - INFO - Initialized with noise_std=0.01, use_lidar=True, goal_difficulty=medium
+2025-04-16 22:14:20,243 - EnhancedDroneEnv - INFO - Goal set to [1.  1.  1.5]
+2025-04-16 22:14:20,243 - EnhancedDroneEnv - INFO - Original observation space shape: (1, 72)
+2025-04-16 22:14:20,244 - EnhancedDroneEnv - INFO - Extended observation space from (1, 72) to (73,)
+2025-04-16 22:14:20,244 - PersonDetector - INFO - Using simulated person detection
+2025-04-16 22:14:20,244 - EnhancedDroneEnv - INFO - Original observation space shape in PersonFinderEnv: (73,)
+2025-04-16 22:14:20,245 - EnhancedDroneEnv - INFO - Extended observation space to (76,)
+2025-04-16 22:14:20,245 - EnhancedDroneEnv - INFO - Initialized PersonFinderEnv with camera_enabled=True, use_visual_goal=True, simulate_detection=True
+2025-04-16 22:14:20,245 - EnhancedDroneEnv - INFO - Extracted features from target image
+2025-04-16 22:14:20,245 - EnhancedDroneEnv - INFO - Set visual person goal
+2025-04-16 22:15:20,321 - root - INFO - Logging initialized
+2025-04-16 22:15:20,321 - root - INFO - Starting Person Finder Drone
+2025-04-16 22:15:21,754 - EnhancedDroneEnv - INFO - Goal set to [1.  1.  1.5] (difficulty: medium)
+2025-04-16 22:15:21,754 - EnhancedDroneEnv - INFO - Initialized with noise_std=0.01, use_lidar=True, goal_difficulty=medium
+2025-04-16 22:15:21,755 - EnhancedDroneEnv - INFO - Goal set to [1.  1.  1.5]
+2025-04-16 22:15:21,755 - EnhancedDroneEnv - INFO - Original observation space shape: (1, 72)
+2025-04-16 22:15:21,755 - EnhancedDroneEnv - INFO - Extended observation space from (1, 72) to (73,)
+2025-04-16 22:15:21,755 - PersonDetector - INFO - Using simulated person detection
+2025-04-16 22:15:21,755 - EnhancedDroneEnv - INFO - Original observation space shape in PersonFinderEnv: (73,)
+2025-04-16 22:15:21,756 - EnhancedDroneEnv - INFO - Extended observation space to (76,)
+2025-04-16 22:15:21,756 - EnhancedDroneEnv - INFO - Initialized PersonFinderEnv with camera_enabled=True, use_visual_goal=True, simulate_detection=True
+2025-04-16 22:15:21,757 - EnhancedDroneEnv - INFO - Extracted features from target image
+2025-04-16 22:15:21,758 - EnhancedDroneEnv - INFO - Set visual person goal
+2025-04-16 22:16:32,790 - root - INFO - Logging initialized
+2025-04-16 22:16:32,790 - root - INFO - Starting Person Finder Drone
+2025-04-16 22:16:33,985 - EnhancedDroneEnv - INFO - Goal set to [1.  1.  1.5] (difficulty: medium)
+2025-04-16 22:16:33,985 - EnhancedDroneEnv - INFO - Initialized with noise_std=0.01, use_lidar=True, goal_difficulty=medium
+2025-04-16 22:16:33,985 - EnhancedDroneEnv - INFO - Goal set to [1.  1.  1.5]
+2025-04-16 22:16:33,985 - EnhancedDroneEnv - INFO - Original observation space shape: (1, 72)
+2025-04-16 22:16:33,985 - EnhancedDroneEnv - INFO - Extended observation space from (1, 72) to (73,)
+2025-04-16 22:16:33,986 - PersonDetector - INFO - Using simulated person detection
+2025-04-16 22:16:33,986 - EnhancedDroneEnv - INFO - Original observation space shape in PersonFinderEnv: (73,)
+2025-04-16 22:16:33,986 - EnhancedDroneEnv - INFO - Extended observation space to (76,)
+2025-04-16 22:16:33,986 - EnhancedDroneEnv - INFO - Initialized PersonFinderEnv with camera_enabled=True, use_visual_goal=True, simulate_detection=True
+2025-04-16 22:16:33,986 - EnhancedDroneEnv - INFO - Extracted features from target image
+2025-04-16 22:16:33,986 - EnhancedDroneEnv - INFO - Set visual person goal
+2025-04-16 22:17:16,999 - root - INFO - Logging initialized
+2025-04-16 22:17:17,000 - root - INFO - Starting Person Finder Drone
+2025-04-16 22:17:18,304 - EnhancedDroneEnv - INFO - Goal set to [1.  1.  1.5] (difficulty: medium)
+2025-04-16 22:17:18,304 - EnhancedDroneEnv - INFO - Initialized with noise_std=0.01, use_lidar=True, goal_difficulty=medium
+2025-04-16 22:17:18,304 - EnhancedDroneEnv - INFO - Goal set to [1.  1.  1.5]
+2025-04-16 22:17:18,304 - EnhancedDroneEnv - INFO - Original observation space shape: (1, 72)
+2025-04-16 22:17:18,305 - EnhancedDroneEnv - INFO - Extended observation space from (1, 72) to (73,)
+2025-04-16 22:17:18,305 - PersonDetector - INFO - Using simulated person detection
+2025-04-16 22:17:18,305 - EnhancedDroneEnv - INFO - Original observation space shape in PersonFinderEnv: (73,)
+2025-04-16 22:17:18,305 - EnhancedDroneEnv - INFO - Extended observation space to (76,)
+2025-04-16 22:17:18,305 - EnhancedDroneEnv - INFO - Initialized PersonFinderEnv with camera_enabled=True, use_visual_goal=True, simulate_detection=True
+2025-04-16 22:17:18,306 - EnhancedDroneEnv - INFO - Extracted features from target image
+2025-04-16 22:17:18,306 - EnhancedDroneEnv - INFO - Set visual person goal
+2025-04-16 22:18:02,443 - root - INFO - Logging initialized
+2025-04-16 22:18:02,443 - root - INFO - Starting Person Finder Drone
+2025-04-16 22:18:03,790 - EnhancedDroneEnv - INFO - Goal set to [1.  1.  1.5] (difficulty: medium)
+2025-04-16 22:18:03,790 - EnhancedDroneEnv - INFO - Initialized with noise_std=0.01, use_lidar=True, goal_difficulty=medium
+2025-04-16 22:18:03,790 - EnhancedDroneEnv - INFO - Goal set to [1.  1.  1.5]
+2025-04-16 22:18:03,790 - EnhancedDroneEnv - INFO - Original observation space shape: (1, 72)
+2025-04-16 22:18:03,791 - EnhancedDroneEnv - INFO - Extended observation space from (1, 72) to (73,)
+2025-04-16 22:18:03,791 - PersonDetector - INFO - Using simulated person detection
+2025-04-16 22:18:03,791 - EnhancedDroneEnv - INFO - Original observation space shape in PersonFinderEnv: (73,)
+2025-04-16 22:18:03,791 - EnhancedDroneEnv - INFO - Extended observation space to (76,)
+2025-04-16 22:18:03,791 - EnhancedDroneEnv - INFO - Initialized PersonFinderEnv with camera_enabled=True, use_visual_goal=True, simulate_detection=True
+2025-04-16 22:18:03,792 - EnhancedDroneEnv - INFO - Extracted features from target image
+2025-04-16 22:18:03,792 - EnhancedDroneEnv - INFO - Set visual person goal
+2025-04-16 22:19:00,432 - root - INFO - Logging initialized
+2025-04-16 22:19:00,432 - root - INFO - Starting Person Finder Drone
+2025-04-16 22:19:01,853 - EnhancedDroneEnv - INFO - Goal set to [1.  1.  1.5] (difficulty: medium)
+2025-04-16 22:19:01,853 - EnhancedDroneEnv - INFO - Initialized with noise_std=0.01, use_lidar=True, goal_difficulty=medium
+2025-04-16 22:19:01,853 - EnhancedDroneEnv - INFO - Goal set to [1.  1.  1.5]
+2025-04-16 22:19:01,853 - EnhancedDroneEnv - INFO - Original observation space shape: (1, 72)
+2025-04-16 22:19:01,854 - EnhancedDroneEnv - INFO - Extended observation space from (1, 72) to (73,)
+2025-04-16 22:19:01,854 - PersonDetector - INFO - Using simulated person detection
+2025-04-16 22:19:01,854 - EnhancedDroneEnv - INFO - Original observation space shape in PersonFinderEnv: (73,)
+2025-04-16 22:19:01,855 - EnhancedDroneEnv - INFO - Extended observation space to (76,)
+2025-04-16 22:19:01,855 - EnhancedDroneEnv - INFO - Initialized PersonFinderEnv with camera_enabled=True, use_visual_goal=True, simulate_detection=True
+2025-04-16 22:19:01,855 - EnhancedDroneEnv - INFO - Extracted features from target image
+2025-04-16 22:19:01,855 - EnhancedDroneEnv - INFO - Set visual person goal
+2025-04-16 22:20:04,075 - root - INFO - Logging initialized
+2025-04-16 22:20:04,075 - root - INFO - Starting Person Finder Drone
+2025-04-16 22:20:05,365 - EnhancedDroneEnv - INFO - Goal set to [1.  1.  1.5] (difficulty: medium)
+2025-04-16 22:20:05,366 - EnhancedDroneEnv - INFO - Initialized with noise_std=0.01, use_lidar=True, goal_difficulty=medium
+2025-04-16 22:20:05,366 - EnhancedDroneEnv - INFO - Goal set to [1.  1.  1.5]
+2025-04-16 22:20:05,366 - EnhancedDroneEnv - INFO - Original observation space shape: (1, 72)
+2025-04-16 22:20:05,366 - EnhancedDroneEnv - INFO - Extended observation space from (1, 72) to (73,)
+2025-04-16 22:20:05,366 - PersonDetector - INFO - Using simulated person detection
+2025-04-16 22:20:05,366 - EnhancedDroneEnv - INFO - Original observation space shape in PersonFinderEnv: (73,)
+2025-04-16 22:20:05,367 - EnhancedDroneEnv - INFO - Extended observation space to (76,)
+2025-04-16 22:20:05,367 - EnhancedDroneEnv - INFO - Initialized PersonFinderEnv with camera_enabled=True, use_visual_goal=True, simulate_detection=True
+2025-04-16 22:20:05,367 - EnhancedDroneEnv - INFO - Extracted features from target image
+2025-04-16 22:20:05,367 - EnhancedDroneEnv - INFO - Set visual person goal
+2025-04-17 07:42:30,277 - root - INFO - Logging initialized
+2025-04-17 07:42:30,278 - root - INFO - Starting Person Finder Drone
+2025-04-17 07:42:31,624 - EnhancedDroneEnv - INFO - Goal set to [1.  1.  1.5] (difficulty: medium)
+2025-04-17 07:42:31,625 - EnhancedDroneEnv - INFO - Initialized with noise_std=0.01, use_lidar=True, goal_difficulty=medium
+2025-04-17 07:42:31,625 - EnhancedDroneEnv - INFO - Goal set to [1.  1.  1.5]
+2025-04-17 07:42:31,625 - EnhancedDroneEnv - INFO - Original observation space shape: (1, 72)
+2025-04-17 07:42:31,625 - EnhancedDroneEnv - INFO - Extended observation space from (1, 72) to (73,)
+2025-04-17 07:42:31,625 - PersonDetector - INFO - Using simulated person detection
+2025-04-17 07:42:31,625 - EnhancedDroneEnv - INFO - Original observation space shape in PersonFinderEnv: (73,)
+2025-04-17 07:42:31,626 - EnhancedDroneEnv - INFO - Extended observation space to (76,)
+2025-04-17 07:42:31,626 - EnhancedDroneEnv - INFO - Initialized PersonFinderEnv with camera_enabled=True, use_visual_goal=True, simulate_detection=True
+2025-04-17 07:42:31,627 - EnhancedDroneEnv - INFO - Extracted features from target image
+2025-04-17 07:42:31,627 - EnhancedDroneEnv - INFO - Set visual person goal

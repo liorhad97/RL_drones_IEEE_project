@@ -2,39 +2,35 @@
 # -*- coding: utf-8 -*-
 
 """
-Person Finder Drone Environment Wrapper
+AirSim Person Finder Environment
 
-This module extends the EnhancedDroneEnv wrapper to create a drone environment
-specialized for person finding missions based on visual or textual descriptions.
-It adapts the goal definition component to handle person descriptions/images
-and provides appropriate rewards for finding the target person.
-
-The wrapper follows the architecture diagram by implementing:
-- The "Goal Definition" component (green box) modified for person finding
-- The "Noise Filter" component (pink box) adapted for vision data
-- The "Person Detection" component for visual detection
-- Integration with human feedback for confirming person matches
+This module adapts the PersonFinderEnv to work with AirSim instead of PyBullet.
+It integrates the AirSim drone API with the person finding capabilities.
 """
 
-import gymnasium as gym
-import numpy as np
-import logging
 import os
+import time
+import math
+import numpy as np
 import cv2
-import torch
+import logging
+import gymnasium as gym
 from typing import Dict, List, Optional, Union, Tuple, Any
 
-# Import the base environment wrapper
-from env_wrapper import EnhancedDroneEnv
+# Import AirSim wrapper
+from airsim_wrapper import AirSimDroneEnv
 
 # Import person detection utilities
-from person_detection_utils import PersonDetector, TextPersonMatcher, get_camera_image, create_target_person_image
+from person_detection_utils import PersonDetector, TextPersonMatcher, create_target_person_image
 
-class PersonFinderEnv(EnhancedDroneEnv):
+# Import utilities
+from utils import setup_logging, calculate_distance_to_goal
+
+class AirSimPersonFinderEnv(gym.Wrapper):
     """
-    Environment wrapper for person finding missions with drones.
+    AirSim environment wrapper for person finding missions with drones.
     
-    This wrapper extends the EnhancedDroneEnv with:
+    This wrapper adapts the AirSimDroneEnv for person finding tasks with:
     - Goal definitions based on visual or textual descriptions of target persons
     - Perception capabilities for person detection
     - Feature extraction for person matching
@@ -56,49 +52,48 @@ class PersonFinderEnv(EnhancedDroneEnv):
     
     def __init__(
         self, 
-        env, 
-        noise_std=0.01, 
-        use_lidar=True, 
+        env,
         use_visual_goal=True,
         detection_threshold=0.5,
         match_threshold=0.7,
         detector_model_path=None,
         feature_extractor_path=None,
         goal_difficulty='easy',
-        camera_enabled=True,
         camera_resolution=(640, 480),
         device='cpu',
         simulate_detection=False
     ):
         """
-        Initialize the person finder environment.
+        Initialize the AirSim person finder environment.
         
         Args:
-            env (gym.Env): The base environment to wrap
-            noise_std (float): Standard deviation of simulated sensor noise
-            use_lidar (bool): Whether to use lidar mapping for state abstraction
+            env (AirSimDroneEnv): The base environment to wrap
             use_visual_goal (bool): Whether to use visual or textual goal
             detection_threshold (float): Confidence threshold for person detection
             match_threshold (float): Threshold for considering a person match
             detector_model_path (str, optional): Path to person detector model
             feature_extractor_path (str, optional): Path to feature extractor model
             goal_difficulty (str): Difficulty level for navigation
-            camera_enabled (bool): Whether to enable camera simulation
             camera_resolution (tuple): Camera resolution (width, height)
             device (str): Device for running models ('cpu' or 'cuda')
             simulate_detection (bool): Whether to simulate detection instead of using models
         """
         # Initialize the base environment wrapper
-        super().__init__(env, noise_std, use_lidar, goal_difficulty)
+        super().__init__(env)
+        
+        # Initialize logger
+        self.logger = logging.getLogger("AirSimPersonFinderEnv")
         
         # Person finding specific attributes
         self.use_visual_goal = use_visual_goal
         self.detection_threshold = detection_threshold
         self.match_threshold = match_threshold
-        self.camera_enabled = camera_enabled
         self.camera_resolution = camera_resolution
         self.device = device
         self.simulate_detection = simulate_detection
+        
+        # Goal settings based on difficulty
+        self.set_difficulty(goal_difficulty)
         
         # Target person information
         self.target_image = None
@@ -120,26 +115,27 @@ class PersonFinderEnv(EnhancedDroneEnv):
         self.detected_persons = []
         self.best_match_score = 0.0
         self.person_found = False
+        self.human_feedback = None
         
         # Extend observation space to include detection info
         self._extend_observation_space()
         
-        self.logger.info(f"Initialized PersonFinderEnv with camera_enabled={camera_enabled}, "
-                        f"use_visual_goal={use_visual_goal}, simulate_detection={simulate_detection}")
+        self.logger.info(f"Initialized AirSimPersonFinderEnv with use_visual_goal={use_visual_goal}, "
+                         f"simulate_detection={simulate_detection}")
     
     def _extend_observation_space(self):
         """Extend the observation space to include detection information."""
-        # Get the current observation space (already extended by EnhancedDroneEnv)
+        # Get the current observation space
         orig_obs_space = self.observation_space
         
-        self.logger.info(f"Original observation space shape in PersonFinderEnv: {orig_obs_space.shape}")
+        self.logger.info(f"Original observation space shape: {orig_obs_space.shape}")
         
         # Add dimensions for:
         # - person detection flag (0/1)
         # - match score (0-1)
         # - number of persons detected (int)
         
-        # Update observation space without explicitly specifying shape
+        # Update observation space
         self.observation_space = gym.spaces.Box(
             low=np.append(orig_obs_space.low, [0, 0, 0]),
             high=np.append(orig_obs_space.high, [1, 1, 10]),  # Assume max 10 persons
@@ -147,6 +143,30 @@ class PersonFinderEnv(EnhancedDroneEnv):
         )
         
         self.logger.info(f"Extended observation space to {self.observation_space.shape}")
+    
+    def set_difficulty(self, difficulty: str):
+        """
+        Set navigation difficulty.
+        
+        Args:
+            difficulty (str): Difficulty level ('easy', 'medium', 'hard')
+        """
+        # Define goals based on difficulty level
+        if difficulty == 'easy':
+            # Simple position close to starting point
+            goal_position = np.array([5.0, 5.0, -3.0])  # NED coordinates
+        elif difficulty == 'medium':
+            # Medium distance
+            goal_position = np.array([20.0, 20.0, -5.0])
+        elif difficulty == 'hard':
+            # Far position with altitude variation
+            goal_position = np.array([50.0, 50.0, -10.0])
+        else:
+            raise ValueError(f"Unknown difficulty level: {difficulty}")
+        
+        # Set goal in base environment
+        self.env.set_goal(goal_position)
+        self.logger.info(f"Set goal position to {goal_position} (difficulty: {difficulty})")
     
     def set_person_goal(self, target_image=None, target_description=None):
         """
@@ -198,7 +218,7 @@ class PersonFinderEnv(EnhancedDroneEnv):
             dict: Info dictionary
         """
         # Execute base environment step
-        obs, reward, done, info = super().step(action)
+        obs, reward, done, info = self.env.step(action)
         
         # Get camera image
         camera_image = self._get_camera_image()
@@ -223,9 +243,10 @@ class PersonFinderEnv(EnhancedDroneEnv):
         info['match_score'] = self.best_match_score
         info['num_detections'] = len(self.detected_persons)
         
-        # Optional: Terminate episode when person is found
-        # if self.person_found:
-        #    done = True
+        # Apply human feedback if available
+        if self.human_feedback is not None:
+            total_reward += 0.1 * self.human_feedback
+            self.human_feedback = None
         
         return obs, total_reward, done, info
     
@@ -304,7 +325,7 @@ class PersonFinderEnv(EnhancedDroneEnv):
             
         Returns:
             np.ndarray: Processed observation
-            dict: Info dictionary (if returned by base environment)
+            dict: Info dictionary
         """
         # Reset detection state
         self.detected_persons = []
@@ -312,81 +333,83 @@ class PersonFinderEnv(EnhancedDroneEnv):
         self.person_found = False
         
         # Call base reset
-        result = super().reset(**kwargs)
+        obs, info = self.env.reset(**kwargs)
         
-        # Process the result and add detection info
-        if isinstance(result, tuple):
-            obs, info = result
-            extended_obs = self._add_detection_info(obs)
-            return extended_obs, info
-        else:
-            obs = result
-            return self._add_detection_info(obs)
+        # Add detection info to the observation
+        extended_obs = self._add_detection_info(obs)
+        
+        # Return the extended observation and info
+        return extended_obs, info
     
     def _get_camera_image(self):
         """
-        Get image from simulated or real camera.
+        Get image from AirSim camera.
         
         Returns:
-            np.ndarray: BGR camera image or None if camera is disabled
+            np.ndarray: BGR camera image
         """
-        if not self.camera_enabled:
+        # Get RGB image from AirSim
+        rgb_image = self.env.get_camera_image()
+        
+        if rgb_image is None:
             return None
         
-        # Try to get image from the environment
-        return get_camera_image(self, width=self.camera_resolution[0], height=self.camera_resolution[1])
+        # Convert to BGR for OpenCV compatibility
+        bgr_image = cv2.cvtColor(rgb_image, cv2.COLOR_RGB2BGR)
+        
+        # Resize if needed
+        if bgr_image.shape[:2] != self.camera_resolution[::-1]:  # Note: resolution is (width, height)
+            bgr_image = cv2.resize(bgr_image, self.camera_resolution)
+        
+        return bgr_image
     
-    def render(self, mode='human'):
+    def provide_human_feedback(self, feedback_value):
         """
-        Render the environment with detection visualization.
+        Provide human feedback to the environment.
         
         Args:
-            mode (str): Rendering mode
-            
-        Returns:
-            np.ndarray or None: Rendered image if mode is 'rgb_array', else None
+            feedback_value (float): Feedback value, typically in the range [-1, 1]
         """
-        # Get base rendering from the environment
-        result = self.env.render(mode)
+        self.human_feedback = feedback_value
+        self.logger.info(f"Received human feedback: {feedback_value}")
+    
+    def visualize_detection(self):
+        """
+        Create visualization of current detection state.
         
-        # For human mode or rgb_array mode, add person detection visualization
-        if mode in ['human', 'rgb_array'] and self.camera_enabled:
-            camera_image = self._get_camera_image()
-            if camera_image is not None:
-                # Find best match index
-                best_match_idx = -1
-                if self.use_visual_goal and self.target_features is not None:
-                    best_match_idx, _ = self.person_detector.find_best_match(
-                        self.detected_persons, self.target_features)
-                elif not self.use_visual_goal and self.target_description is not None:
-                    best_match_idx, _ = self.text_matcher.find_best_match(
-                        self.detected_persons, self.target_description)
-                
-                # Create visualization
-                vis_img = self.person_detector.visualize_detections(
-                    camera_image, 
-                    self.detected_persons, 
-                    self.target_image, 
-                    best_match_idx
-                )
-                
-                # Add match score and found status
-                h, w = vis_img.shape[:2]
-                cv2.putText(vis_img, f"Match: {self.best_match_score:.2f}", (10, h-30),
-                          cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
-                
-                status = "FOUND!" if self.person_found else "Searching..."
-                color = (0, 255, 0) if self.person_found else (0, 0, 255)
-                cv2.putText(vis_img, status, (w-150, 30),
-                          cv2.FONT_HERSHEY_SIMPLEX, 0.7, color, 2)
-                
-                # Show the image in human mode
-                if mode == 'human':
-                    cv2.imshow('Person Detection', vis_img)
-                    cv2.waitKey(1)
-                
-                # Return the visualization in rgb_array mode
-                if mode == 'rgb_array':
-                    return vis_img
+        Returns:
+            np.ndarray: Visualization image
+        """
+        # Get camera image
+        camera_image = self._get_camera_image()
+        if camera_image is None:
+            return None
         
-        return result
+        # Find best match index
+        best_match_idx = -1
+        if self.use_visual_goal and self.target_features is not None:
+            best_match_idx, _ = self.person_detector.find_best_match(
+                self.detected_persons, self.target_features)
+        elif not self.use_visual_goal and self.target_description is not None:
+            best_match_idx, _ = self.text_matcher.find_best_match(
+                self.detected_persons, self.target_description)
+        
+        # Create visualization
+        vis_img = self.person_detector.visualize_detections(
+            camera_image, 
+            self.detected_persons, 
+            self.target_image, 
+            best_match_idx
+        )
+        
+        # Add match score and found status
+        h, w = vis_img.shape[:2]
+        cv2.putText(vis_img, f"Match: {self.best_match_score:.2f}", (10, h-30),
+                  cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
+        
+        status = "FOUND!" if self.person_found else "Searching..."
+        color = (0, 255, 0) if self.person_found else (0, 0, 255)
+        cv2.putText(vis_img, status, (w-150, 30),
+                  cv2.FONT_HERSHEY_SIMPLEX, 0.7, color, 2)
+        
+        return vis_img

@@ -55,7 +55,7 @@ class HumanFeedbackCallback(BaseCallback):
         self.last_feedback_step = 0
         self.feedback_window = None
         
-        self.logger = logging.getLogger('HumanFeedbackCallback')
+        self._logger = logging.getLogger('HumanFeedbackCallback')
         
         # Print instructions
         key_instructions = ', '.join([f"'{k}' for {v}" for k, v in feedback_keys.items()])
@@ -114,10 +114,10 @@ class HumanFeedbackCallback(BaseCallback):
             # Show the figure (non-blocking)
             plt.show(block=False)
             
-            self.logger.info("Feedback UI initialized")
+            self._logger.info("Feedback UI initialized")
             
         except ImportError:
-            self.logger.warning("Matplotlib not available, disabling feedback UI")
+            self._logger.warning("Matplotlib not available, disabling feedback UI")
             self.feedback_ui_enabled = False
     
     def _provide_feedback(self, value: float) -> None:
@@ -130,7 +130,7 @@ class HumanFeedbackCallback(BaseCallback):
         # Check if the environment has a provide_human_feedback method
         if hasattr(self.training_env, 'provide_human_feedback'):
             self.training_env.provide_human_feedback(value)
-            self.logger.info(f"Provided feedback: {value}")
+            self._logger.info(f"Provided feedback: {value}")
             
             # Update UI text if available
             if self.feedback_ui_enabled and hasattr(self, 'feedback_text'):
@@ -173,7 +173,7 @@ class HumanFeedbackCallback(BaseCallback):
             try:
                 self._check_keyboard_input()
             except Exception as e:
-                self.logger.error(f"Error checking keyboard input: {e}")
+                self._logger.error(f"Error checking keyboard input: {e}")
             
             self.last_feedback_step = self.num_timesteps
         
@@ -363,7 +363,7 @@ class LoggingCallback(BaseCallback):
         self.current_episode_reward = 0
         self.current_episode_length = 0
         
-        self.logger = logging.getLogger('LoggingCallback')
+        self._logger = logging.getLogger('LoggingCallback')
         
         # Create log directory if it doesn't exist
         os.makedirs(log_dir, exist_ok=True)
@@ -391,7 +391,7 @@ class LoggingCallback(BaseCallback):
             median_length = np.median(self.episode_lengths[-100:])
             
             # Log to console
-            self.logger.info(
+            self._logger.info(
                 f"Timesteps: {timesteps}, Episodes: {episodes}\n"
                 f"Mean reward: {mean_reward:.2f}, Median: {median_reward:.2f}\n"
                 f"Min: {min_reward:.2f}, Max: {max_reward:.2f}, Std: {std_reward:.2f}\n"
@@ -459,7 +459,7 @@ class LoggingCallback(BaseCallback):
             plt.close(fig)
             
         except Exception as e:
-            self.logger.error(f"Error creating reward plot: {e}")
+            self._logger.error(f"Error creating reward plot: {e}")
     
     def _save_checkpoint(self) -> None:
         """Save a checkpoint of the model."""
@@ -473,7 +473,7 @@ class LoggingCallback(BaseCallback):
         
         try:
             self.model.save(checkpoint_path)
-            self.logger.info(f"Saved checkpoint to {checkpoint_path}")
+            self._logger.info(f"Saved checkpoint to {checkpoint_path}")
             
             # Save episode data
             stats_path = os.path.join(checkpoint_dir, f"stats_{timestamp}.npz")
@@ -485,7 +485,7 @@ class LoggingCallback(BaseCallback):
             )
             
         except Exception as e:
-            self.logger.error(f"Error saving checkpoint: {e}")
+            self._logger.error(f"Error saving checkpoint: {e}")
     
     def _on_step(self) -> bool:
         """
@@ -554,10 +554,11 @@ class CombinedCallback(BaseCallback):
     def _on_training_start(self) -> None:
         """Called at the start of training."""
         for callback in self.callbacks:
-            callback.on_training_start(
-                locals=self.locals,
-                globals=self.globals
-            )
+            # Make sure each callback has the model attribute
+            if hasattr(self, 'model'):
+                callback.model = self.model
+            # Pass the locals and globals from the CombinedCallback to child callbacks
+            callback.on_training_start(locals_=self.locals, globals_=self.globals)
     
     def _on_step(self) -> bool:
         """

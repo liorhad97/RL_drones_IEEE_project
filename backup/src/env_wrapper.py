@@ -120,6 +120,8 @@ class EnhancedDroneEnv(gym.Wrapper):
         Reset the environment and apply goal injection.
         
         Args:
+            seed (int, optional): Seed for the random number generator
+            options (dict, optional): Additional options for reset
             **kwargs: Additional arguments to pass to the base environment reset
             
         Returns:
@@ -128,7 +130,11 @@ class EnhancedDroneEnv(gym.Wrapper):
         """
         self.logger.debug("Resetting environment")
         
-        # Reset base environment
+        # Handle seed and options parameters for compatibility with newer Gym versions
+        seed = kwargs.pop('seed', None)
+        options = kwargs.pop('options', None)
+        
+        # Reset base environment - only forward compatible kwargs
         result = self.env.reset(**kwargs)
         
         # Clear history
@@ -137,12 +143,20 @@ class EnhancedDroneEnv(gym.Wrapper):
         
         # Process the result based on the return type (gym vs gymnasium)
         if isinstance(result, tuple):
-            obs, info = result
-            processed_obs = self._process_obs(obs)
-            return processed_obs, info
+            # Handle different return formats based on length
+            if len(result) == 2:  # Standard gym/gymnasium format: obs, info
+                obs, info = result
+                processed_obs = self._process_obs(obs)
+                return processed_obs, info
+            else:  # Other format, extract the observation and create empty info
+                obs = result[0]
+                processed_obs = self._process_obs(obs)
+                return processed_obs, {}
         else:
+            # Single return value, create empty info dict
             obs = result
-            return self._process_obs(obs)
+            processed_obs = self._process_obs(obs)
+            return processed_obs, {}
     
     def step(self, action):
         """
@@ -157,6 +171,12 @@ class EnhancedDroneEnv(gym.Wrapper):
             bool: Done flag
             dict: Info dictionary
         """
+        # Reshape action if needed - fix for the dimension mismatch
+        if isinstance(action, np.ndarray) and len(action.shape) == 1:
+            # The BaseRLAviary expects shape (NUM_DRONES, 4) while our SAC is outputting a flat array
+            # Reshape to match what the environment expects
+            action = action.reshape(1, -1)  # Reshape to (1, 4) for single drone
+        
         # Execute action in the environment
         result = self.env.step(action)
         
@@ -254,13 +274,24 @@ class EnhancedDroneEnv(gym.Wrapper):
             np.ndarray: Observation with added state abstractions
         """
         # Extract position information (assuming first 3 elements are x,y,z position)
-        position = obs[:3]
+        # Handle different observation shapes
+        if len(obs.shape) == 3:  # If shape is (1, 1, N)
+            position = obs[0, 0, :3]
+        elif len(obs.shape) == 2:  # If shape is (1, N)
+            position = obs[0, :3]
+        else:  # If shape is (N,)
+            position = obs[:3]
         
         # Calculate distance to goal as a simple abstraction
         distance_to_goal = np.linalg.norm(position - self.goal)
         
         # Add this abstracted information to the observation
-        abstracted_obs = np.append(obs, distance_to_goal)
+        if len(obs.shape) == 3:
+            abstracted_obs = np.append(obs.flatten(), distance_to_goal)
+        elif len(obs.shape) == 2:
+            abstracted_obs = np.append(obs.flatten(), distance_to_goal)
+        else:
+            abstracted_obs = np.append(obs, distance_to_goal)
         
         # Log abstraction at debug level
         self.logger.debug(f"Position: {position}, Distance to goal: {distance_to_goal}")
